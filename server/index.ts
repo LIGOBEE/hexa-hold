@@ -69,6 +69,19 @@ const generateRoomId = () => Math.random().toString(36).substring(2, 8).toUpperC
 const rollDie = () => Math.floor(Math.random() * 6) + 1;
 const BLIND_BET = 10;
 
+// --- Room List Management ---
+
+// 广播最新的房间列表给所有连接（包括大厅中的人）
+const broadcastRoomList = () => {
+    const roomList = Object.values(rooms).map(r => ({
+        id: r.id,
+        hostName: r.players.find(p => p.isHost)?.name || "Unknown",
+        playerCount: r.players.length,
+        status: r.gameState.phase === 'IDLE' || r.gameState.phase === 'SHOWDOWN' ? '等待中' : '游戏中'
+    }));
+    io.emit('roomListUpdate', roomList);
+};
+
 // --- Game Logic ---
 
 const broadcastRoom = (room: GameRoom) => {
@@ -122,8 +135,12 @@ const nextPhase = (room: GameRoom) => {
         msg = "摊牌时刻!";
     }
 
-    room.gameState.phase = nextP;
+            room.gameState.phase = nextP;
     room.gameState.log.push(msg);
+    
+    if (nextP === 'IDLE' || nextP === 'SHOWDOWN') {
+        broadcastRoomList();
+    }
     
     // Reset bets for new round
     room.gameState.currentBet = 0;
@@ -298,6 +315,7 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         socket.emit('roomCreated', { roomId, player: newPlayer });
         broadcastRoom(rooms[roomId]);
+        broadcastRoomList();
     });
 
     socket.on('joinRoom', ({ roomId, playerName }: { roomId: string, playerName: string }) => {
@@ -320,6 +338,7 @@ io.on('connection', (socket) => {
             socket.join(roomId);
             room.gameState.log.push(`${newPlayer.name} 加入了房间`);
             broadcastRoom(room);
+            broadcastRoomList();
         } else {
             socket.emit('error', '房间不存在');
         }
@@ -377,6 +396,7 @@ io.on('connection', (socket) => {
             if (!room.players[0].isHuman) {
                 setTimeout(() => performBotAction(room, room.players[0]), 1500);
             }
+            broadcastRoomList(); // Update status to Playing
         }
     });
 
@@ -388,10 +408,42 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        // Find room user was in
-        // Ideally clean up player, but for MVP we leave 'ghost' players or handle nicely
         console.log('User disconnected:', socket.id);
+        
+        // Find and remove player from rooms
+        let roomChanged = false;
+        
+        Object.keys(rooms).forEach(roomId => {
+            const room = rooms[roomId];
+            const pIdx = room.players.findIndex(p => p.id === socket.id);
+            
+            if (pIdx !== -1) {
+                const p = room.players[pIdx];
+                room.players.splice(pIdx, 1);
+                room.gameState.log.push(`${p.name} 离开了游戏`);
+                roomChanged = true;
+                
+                // If empty, delete room
+                if (room.players.length === 0) {
+                    delete rooms[roomId];
+                } else {
+                    // If host left, assign new host
+                    if (p.isHost && room.players.length > 0) {
+                        room.players[0].isHost = true;
+                        room.gameState.log.push(`${room.players[0].name} 成为了房主`);
+                    }
+                    broadcastRoom(room);
+                }
+            }
+        });
+        
+        if (roomChanged) {
+            broadcastRoomList();
+        }
     });
+
+    // Initial Room List for new connection
+    broadcastRoomList();
 });
 
 server.listen(PORT, () => {
