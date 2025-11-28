@@ -9,23 +9,23 @@ interface LobbyProps {
 export default function Lobby({ onJoin }: LobbyProps) {
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
+  
+  // 判断是否为线上生产环境 (非 localhost 且非 IP 地址)
+  const isProduction = window.location.hostname !== 'localhost' && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(window.location.hostname);
+  
+  // 仅在非生产环境（本地开发/局域网联机）显示 IP 输入框
   const [serverIp, setServerIp] = useState(window.location.hostname);
 
   const connect = () => {
-    // 自动检测环境
-    // 1. 如果用户手动输入了IP，使用用户输入的
-    // 2. 如果是开发环境，默认连接 localhost:3001
-    // 3. 生产环境（部署后），连接当前域名（空字符串或 undefined 让 socket.io 自动处理）
-    if (serverIp && serverIp !== window.location.hostname) {
-         return io(`http://${serverIp}:3001`);
+    // 生产环境：直接连接当前域名，由 socket.io 自动处理 (自动识别 HTTPS/WSS)
+    if (isProduction) {
+        return io();
     }
-    
-    if (import.meta.env.DEV) {
-        return io('http://localhost:3001');
-    }
-    
-    // 生产环境，自动连接当前服务器
-    return io();
+
+    // 开发/局域网环境：使用输入的 IP 和端口
+    // 如果输入为空或就是本机，尝试连 localhost，否则连指定 IP
+    const targetIp = serverIp || 'localhost';
+    return io(`http://${targetIp}:3001`);
   };
 
   const createRoom = () => {
@@ -66,6 +66,7 @@ export default function Lobby({ onJoin }: LobbyProps) {
                 />
             </div>
 
+            {!isProduction && (
             <div>
                 <label className="block text-slate-400 text-sm mb-2">服务器 IP (默认本机)</label>
                 <input 
@@ -76,6 +77,7 @@ export default function Lobby({ onJoin }: LobbyProps) {
                 />
                  <p className="text-xs text-slate-500 mt-1">如果是主机请填 localhost，如果是访客请填主机的局域网 IP</p>
             </div>
+            )}
 
             <div className="pt-4 border-t border-slate-700">
                 <button 
