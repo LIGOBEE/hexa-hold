@@ -55,8 +55,12 @@ const PlayerArea: React.FC<PlayerAreaProps> = ({ player, isActive, gamePhase, re
       </div>
 
       {/* Dice Area */}
-      <div className="flex gap-2 p-2 bg-slate-900/50 rounded-lg shadow-inner min-h-[80px]">
-        {hasVisibleDice ? (
+      <div className={`flex gap-2 p-2 bg-slate-900/50 rounded-lg shadow-inner min-h-[80px] ${gamePhase === GamePhase.IDLE ? 'opacity-30' : ''}`}>
+        {gamePhase === GamePhase.IDLE ? (
+           <div className="flex items-center justify-center w-full h-full text-slate-500 text-xs font-mono tracking-wider">
+              等待发牌
+           </div>
+        ) : hasVisibleDice ? (
           player.holeDice.map((val, idx) => (
             <Die key={`hole-${player.id}-${idx}`} value={val} size="md" />
           ))
