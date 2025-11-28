@@ -1,8 +1,13 @@
 
+import { fileURLToPath } from 'url';
+import path from 'path';
 import { Server } from 'socket.io';
 import express from 'express';
 import http from 'http';
 import { evaluateHand, compareHands, HandResult } from './handEvaluator';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -13,7 +18,20 @@ const io = new Server(server, {
   }
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
+
+// --- 静态文件托管 (生产环境) ---
+if (process.env.NODE_ENV === 'production') {
+    // 假设构建后的前端文件在 ../dist 目录
+    const distPath = path.join(__dirname, '../dist');
+    app.use(express.static(distPath));
+    
+    // 所有非 API 请求返回 index.html (SPA 支持)
+    // Express 5: 使用正则或 (.*) 替代 *
+    app.get(/(.*)/, (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+}
 
 // --- Types ---
 

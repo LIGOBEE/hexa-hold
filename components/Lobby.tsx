@@ -12,8 +12,20 @@ export default function Lobby({ onJoin }: LobbyProps) {
   const [serverIp, setServerIp] = useState(window.location.hostname);
 
   const connect = () => {
-    const socketUrl = `http://${serverIp}:3001`;
-    return io(socketUrl);
+    // 自动检测环境
+    // 1. 如果用户手动输入了IP，使用用户输入的
+    // 2. 如果是开发环境，默认连接 localhost:3001
+    // 3. 生产环境（部署后），连接当前域名（空字符串或 undefined 让 socket.io 自动处理）
+    if (serverIp && serverIp !== window.location.hostname) {
+         return io(`http://${serverIp}:3001`);
+    }
+    
+    if (import.meta.env.DEV) {
+        return io('http://localhost:3001');
+    }
+    
+    // 生产环境，自动连接当前服务器
+    return io();
   };
 
   const createRoom = () => {
