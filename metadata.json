@@ -1,0 +1,5 @@
+{
+  "name": "Hexa-Hold'em",
+  "description": "A simplified Texas Hold'em variant using D6 dice instead of cards. Pure probability strategy without suits.",
+  "requestFramePermissions": []
+}
